@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
+    env_file:
+      - .env
+    ports:
+      - "${HOST_PORT:-8080}:${PORT:-8080}"
+    volumes:
+      - zhihu_data:/data
+    restart: unless-stopped
+    stop_grace_period: 30s
+    init: true
+
+volumes:
+  zhihu_data:

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}登录 · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="card login-card">
+  <h1>登录</h1>
+  <p class="muted">使用环境变量中配置的管理员账号访问。</p>
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="field">
+      <span>用户名</span>
+      <input type="text" name="username" autocomplete="username" required autofocus>
+    </label>
+    <label class="field">
+      <span>密码</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary btn-block">登录</button>
+  </form>
+</div>
+{% endblock %}

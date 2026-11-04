@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}任务 · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>下载任务</h1>
+    <p class="muted">任务按创建顺序串行执行。</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('collections.index') }}">收藏夹</a>
+</div>
+
+{% if jobs %}
+<div class="card table-wrap">
+  <table>
+    <thead>
+      <tr><th>#</th><th>收藏夹</th><th>状态</th><th>阶段</th><th>篇数</th><th>创建时间</th><th>耗时</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for job in jobs %}
+      <tr>
+        <td>{{ job["id"] }}</td>
+        <td>
+          <strong>{{ job["collection_name"] }}</strong>
+          <div class="muted small truncate">{{ job["collection_url"] }}</div>
+        </td>
+        <td><span class="badge status-{{ job["status"] }}">{{ STATUS_LABELS[job["status"]] }}</span></td>
+        <td>{{ STAGE_LABELS.get(job["stage"], job["stage"]) }}</td>
+        <td>{{ job["md_count"] if job["md_count"] is not none else "—" }}</td>
+        <td class="muted small">{{ job["created_at"]|localtime }}</td>
+        <td class="muted small">{{ job["started_at"]|duration(job["finished_at"]) or "—" }}</td>
+        <td class="right"><a class="btn btn-ghost btn-sm" href="{{ url_for('jobs.detail', job_id=job["id"]) }}">详情</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<nav class="pagination">
+  {% if page > 1 %}<a class="btn btn-ghost btn-sm" href="{{ url_for('jobs.index', page=page-1) }}">上一页</a>{% endif %}
+  <span class="muted small">第 {{ page }} / {{ pages }} 页，共 {{ total }} 条</span>
+  {% if page < pages %}<a class="btn btn-ghost btn-sm" href="{{ url_for('jobs.index', page=page+1) }}">下一页</a>{% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card empty-card">
+  <h2>还没有任务</h2>
+  <p class="muted">到收藏夹页面点击“立即下载”创建第一个任务。</p>
+  <a class="btn btn-primary" href="{{ url_for('collections.index') }}">前往收藏夹</a>
+</div>
+{% endif %}
+{% endblock %}

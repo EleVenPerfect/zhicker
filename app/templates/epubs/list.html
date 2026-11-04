@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}EPUB · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>EPUB</h1>
+    <p class="muted">下载完成后只保留 EPUB，可在此下载、重发邮件或删除。</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('settings.index') }}">邮箱设置</a>
+</div>
+
+{% if not smtp_configured %}
+<div class="alert alert-info">
+  尚未配置 SMTP 邮箱，新生成的 EPUB 会保存在这里，但不会自动发送。
+</div>
+{% endif %}
+
+{% if epubs %}
+<div class="card table-wrap">
+  <table>
+    <thead>
+      <tr><th>文件</th><th>收藏夹</th><th>大小</th><th>生成时间</th><th>邮件</th><th class="right">操作</th></tr>
+    </thead>
+    <tbody>
+    {% for epub in epubs %}
+      <tr>
+        <td>
+          <strong>{{ epub["display_name"] }}</strong>
+          <div class="muted small">{{ epub["stored_name"] }}</div>
+        </td>
+        <td>{{ epub["collection_name"] }}</td>
+        <td>{{ epub["size_bytes"]|filesize }}</td>
+        <td class="muted small">{{ epub["created_at"]|localtime }}</td>
+        <td>
+          <span class="badge email-{{ epub["email_status"] }}">{{ EMAIL_STATUS_LABELS[epub["email_status"]] }}</span>
+          {% if epub["last_email_error"] %}
+          <div class="muted small truncate" title="{{ epub["last_email_error"] }}">{{ epub["last_email_error"] }}</div>
+          {% endif %}
+        </td>
+        <td class="right actions">
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('epubs.download', epub_id=epub["id"]) }}">下载</a>
+          <form method="post" action="{{ url_for('epubs.resend', epub_id=epub["id"]) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm">重发邮件</button>
+          </form>
+          <form method="post" action="{{ url_for('epubs.delete', epub_id=epub["id"]) }}" class="inline" data-confirm="确定删除 EPUB「{{ epub["display_name"] }}」？文件删除后无法恢复。">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<nav class="pagination">
+  {% if page > 1 %}<a class="btn btn-ghost btn-sm" href="{{ url_for('epubs.index', page=page-1) }}">上一页</a>{% endif %}
+  <span class="muted small">第 {{ page }} / {{ pages }} 页，共 {{ total }} 条</span>
+  {% if page < pages %}<a class="btn btn-ghost btn-sm" href="{{ url_for('epubs.index', page=page+1) }}">下一页</a>{% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card empty-card">
+  <h2>还没有 EPUB</h2>
+  <p class="muted">运行一个下载任务后，生成的 EPUB 会出现在这里。</p>
+  <a class="btn btn-primary" href="{{ url_for('collections.index') }}">前往收藏夹</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="card error-card">
+  <p class="error-code">{{ code }}</p>
+  <h1>{{ message }}</h1>
+  <p class="muted">如果问题持续出现，请查看容器日志。</p>
+  <a class="btn btn-primary" href="{{ url_for('dashboard.index') }}">返回概览</a>
+</div>
+{% endblock %}

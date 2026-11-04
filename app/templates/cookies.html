@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Cookie · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>知乎 Cookie</h1>
+    <p class="muted">Cookie 会加密保存在本地 SQLite 中，过期后重新导入即可。</p>
+  </div>
+</div>
+
+{% if state.decrypt_failed %}
+<div class="alert alert-error">
+  Cookie 解密失败，通常是 <code>SECRET_KEY</code> 发生了变更。请重新导入浏览器 Cookie。
+</div>
+{% elif state.configured %}
+<div class="alert alert-success">
+  已保存 {{ state.count }} 个 Cookie，最近更新于 {{ state.updated_at|localtime }}。
+</div>
+{% if state.missing_critical %}
+<div class="alert alert-warning">
+  缺少关键字段：{{ state.missing_critical|join(", ") }}。抓取收藏夹通常需要有效的 <code>z_c0</code>。
+</div>
+{% endif %}
+{% else %}
+<div class="alert alert-warning">尚未保存 Cookie，下载任务无法启动。</div>
+{% endif %}
+
+{% if state.last_test_at %}
+<div class="alert {{ 'alert-success' if state.last_test_ok else 'alert-error' }}">
+  最近一次测试（{{ state.last_test_at|localtime }}）：{{ state.last_test_message }}
+</div>
+{% endif %}
+
+{% if state.configured %}
+<form method="post" action="{{ url_for('cookies.clear') }}" class="inline clear-cookie-form" data-confirm="确定清除已保存的知乎 Cookie 吗？">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn btn-danger btn-sm">清除已保存的 Cookie</button>
+</form>
+{% endif %}
+
+<div class="two-col">
+  <section class="card">
+    <div class="section-head">
+      <h2>导入 Cookie</h2>
+    </div>
+    <form method="post" action="{{ url_for('cookies.import_cookies') }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="field">
+        <span>浏览器 Copy as cURL、Cookie 请求头或 Cookies.json</span>
+        <textarea name="cookie_text" rows="8" required placeholder="curl 'https://www.zhihu.com/...' -H 'cookie: z_c0=...; d_c0=...; _xsrf=...'"></textarea>
+        <small class="muted">从浏览器开发者工具复制任意知乎请求的 cURL 即可，系统会自动提取 Cookie 头。</small>
+      </label>
+      <div class="radio-row">
+        <label><input type="radio" name="mode" value="merge" checked> 合并（保留旧字段）</label>
+        <label><input type="radio" name="mode" value="replace"> 覆盖全部</label>
+      </div>
+      <button type="submit" class="btn btn-primary">保存 Cookie</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="section-head">
+      <h2>测试 Cookie</h2>
+    </div>
+    {% if collections %}
+    <form method="post" action="{{ url_for('cookies.test') }}" class="stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="field">
+        <span>使用哪个收藏夹测试</span>
+        <select name="collection_id">
+          {% for collection in collections %}
+          <option value="{{ collection["id"] }}">{{ collection["name"] }}（#{{ collection["id"] }}）</option>
+          {% endfor %}
+        </select>
+        <small class="muted">会请求该收藏夹的第一页，确认登录态是否有效。</small>
+      </label>
+      <button type="submit" class="btn btn-ghost">测试连接</button>
+    </form>
+    {% else %}
+    <p class="empty">先添加一个收藏夹，才能测试 Cookie。</p>
+    <a class="btn btn-ghost" href="{{ url_for('collections.new') }}">新增收藏夹</a>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <div class="section-head">
+    <h2>已保存的字段</h2>
+    <span class="muted small">值为脱敏展示</span>
+  </div>
+  {% if state["items"] %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>名称</th><th>值</th></tr></thead>
+      <tbody>
+      {% for item in state["items"] %}
+        <tr><td><code>{{ item.name }}</code></td><td><code>{{ item.masked }}</code></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有保存任何 Cookie。</p>
+  {% endif %}
+</section>
+{% endblock %}

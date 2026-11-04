@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}任务 #{{ job["id"] }} · 知乎收藏夹管理{% endblock %}
+{% block head %}
+{% if job["status"] in ("queued", "running") %}
+<meta http-equiv="refresh" content="5">
+{% endif %}
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>任务 #{{ job["id"] }}</h1>
+    <p class="muted">{{ job["collection_name"] }} · {{ job["collection_url"] }}</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('jobs.index') }}">返回任务列表</a>
+</div>
+
+<section class="card">
+  <div class="detail-head">
+    <span class="badge badge-lg status-{{ job["status"] }}">{{ STATUS_LABELS[job["status"]] }}</span>
+    <span class="muted">阶段：{{ STAGE_LABELS.get(job["stage"], job["stage"]) }}</span>
+    {% if job["status"] in ("queued", "running") %}
+    <span class="muted small">页面每 5 秒自动刷新</span>
+    {% endif %}
+  </div>
+
+  <dl class="meta-grid">
+    <div><dt>创建时间</dt><dd>{{ job["created_at"]|localtime }}</dd></div>
+    <div><dt>开始时间</dt><dd>{{ job["started_at"]|localtime if job["started_at"] else "—" }}</dd></div>
+    <div><dt>结束时间</dt><dd>{{ job["finished_at"]|localtime if job["finished_at"] else "—" }}</dd></div>
+    <div><dt>耗时</dt><dd>{{ job["started_at"]|duration(job["finished_at"]) or "—" }}</dd></div>
+    <div><dt>文章数</dt><dd>{{ job["md_count"] if job["md_count"] is not none else "—" }}</dd></div>
+    <div><dt>EPUB</dt><dd>{{ epub["display_name"] if epub else "—" }}</dd></div>
+  </dl>
+
+  {% if job["error"] %}
+  <div class="alert alert-error">
+    <strong>任务失败原因</strong>
+    <div class="pre-wrap">{{ job["error"] }}</div>
+  </div>
+  {% endif %}
+
+  {% if epub %}
+  <div class="subcard">
+    <div>
+      <strong>{{ epub["display_name"] }}</strong>
+      <div class="muted small">
+        {{ epub["size_bytes"]|filesize }} · 生成于 {{ epub["created_at"]|localtime }} ·
+        邮件：<span class="badge email-{{ epub["email_status"] }}">{{ EMAIL_STATUS_LABELS[epub["email_status"]] }}</span>
+      </div>
+      {% if epub["last_email_error"] %}
+      <div class="muted small">{{ epub["last_email_error"] }}</div>
+      {% endif %}
+    </div>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('epubs.download', epub_id=epub["id"]) }}">下载 EPUB</a>
+  </div>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="section-head"><h2>任务日志</h2></div>
+  {% if job["log_text"] %}
+  <pre class="log">{{ job["log_text"] }}</pre>
+  {% else %}
+  <p class="empty">暂无日志。</p>
+  {% endif %}
+</section>
+{% endblock %}

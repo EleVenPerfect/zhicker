@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}设置 · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>邮箱设置</h1>
+    <p class="muted">环境变量提供默认值，Web 页面保存的配置优先。</p>
+  </div>
+  <span class="badge {{ 'badge-ok' if smtp_configured else 'badge-muted' }}">
+    {{ "邮箱已配置" if smtp_configured else "邮箱未配置" }}
+  </span>
+</div>
+
+{% if decrypt_failed %}
+<div class="alert alert-error">
+  SMTP 密码解密失败，可能是 <code>SECRET_KEY</code> 变更导致。请重新填写密码并保存。
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('settings.save') }}" class="card stack form-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% for field in fields %}
+  <label class="field">
+    <span>
+      {{ field.label }}
+      <span class="source-badge source-{{ sources[field.key] }}">{{ "环境变量" if sources[field.key] == "env" else "数据库" }}</span>
+    </span>
+    {% if field.key == "security" %}
+    <select name="security">
+      <option value="starttls" {{ 'selected' if values.security == 'starttls' else '' }}>STARTTLS（通常端口 587）</option>
+      <option value="ssl" {{ 'selected' if values.security == 'ssl' else '' }}>SSL（通常端口 465）</option>
+      <option value="none" {{ 'selected' if values.security == 'none' else '' }}>不加密（仅本地测试）</option>
+    </select>
+    {% elif field.key == "port" %}
+    <input type="number" name="port" min="1" max="65535" value="{{ values.port }}">
+    {% elif field.get("secret") %}
+    <input type="password" name="password" autocomplete="new-password" placeholder="{{ '已设置，留空保持不变' if values.password else '未设置' }}">
+    <small class="muted">密码不会回显；留空表示保留当前值。</small>
+    {% else %}
+    <input type="text" name="{{ field.key }}" value="{{ values[field.key] }}">
+    {% endif %}
+    {% if field.key == "host" %}
+    <small class="muted">例如 smtp.qq.com、smtp.163.com；留空表示不发送邮件。</small>
+    {% elif field.key == "from_addr" %}
+    <small class="muted">发件邮箱地址，需与 SMTP 账号匹配。</small>
+    {% elif field.key == "to_addr" %}
+    <small class="muted">EPUB 会作为附件发送到这个邮箱。</small>
+    {% elif field.key == "from_name" %}
+    <small class="muted">邮件中显示的发件人名称。</small>
+    {% endif %}
+  </label>
+  {% endfor %}
+
+  <div class="actions">
+    <button type="submit" class="btn btn-primary">保存配置</button>
+  </div>
+</form>
+
+<div class="two-col">
+  <section class="card">
+    <div class="section-head"><h2>发送测试邮件</h2></div>
+    <p class="muted small">使用已保存的配置，向收件邮箱发送一封测试邮件。</p>
+    <form method="post" action="{{ url_for('settings.test') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-ghost">发送测试邮件</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><h2>恢复环境变量默认值</h2></div>
+    <p class="muted small">清除 Web 页面保存的所有 SMTP 配置，改用 <code>.env</code> 中的值。</p>
+    <form method="post" action="{{ url_for('settings.reset') }}" data-confirm="确定清除 Web 页面保存的 SMTP 配置吗？">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-danger">恢复默认</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

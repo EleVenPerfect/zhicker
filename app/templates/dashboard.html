@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}概览 · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>概览</h1>
+    <p class="muted">下载任务串行执行，EPUB 生成后只保留最终文件。</p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-ghost" href="{{ url_for('cookies.index') }}">更新 Cookie</a>
+    <a class="btn btn-primary" href="{{ url_for('collections.new') }}">新增收藏夹</a>
+  </div>
+</div>
+
+<div class="cards">
+  <div class="card stat">
+    <span class="stat-label">收藏夹</span>
+    <strong class="stat-value">{{ collection_count }}</strong>
+    <span class="muted small">已登记地址</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">任务</span>
+    <strong class="stat-value">{{ job_count }}</strong>
+    <span class="muted small">排队 {{ status_counts["queued"] }} · 运行 {{ status_counts["running"] }}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">EPUB</span>
+    <strong class="stat-value">{{ epub_count }}</strong>
+    <span class="muted small">占用 {{ epub_bytes|filesize }}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">结果</span>
+    <strong class="stat-value">{{ status_counts["success"] }}</strong>
+    <span class="muted small">成功 · 失败 {{ status_counts["failed"] }}</span>
+  </div>
+</div>
+
+{% if cookie_state.decrypt_failed %}
+<div class="alert alert-error">
+  Cookie 解密失败，<code>SECRET_KEY</code> 可能已经变更。请到 <a href="{{ url_for('cookies.index') }}">Cookie 页面</a>重新导入。
+</div>
+{% elif not cookie_state.configured %}
+<div class="alert alert-warning">
+  还没有配置知乎 Cookie，下载任务无法启动。请先到 <a href="{{ url_for('cookies.index') }}">Cookie 页面</a>导入。
+</div>
+{% endif %}
+
+{% if smtp_decrypt_failed %}
+<div class="alert alert-error">
+  SMTP 密码解密失败，<code>SECRET_KEY</code> 可能已经变更。请到 <a href="{{ url_for('settings.index') }}">设置页面</a>重新保存密码。
+</div>
+{% elif not smtp_configured %}
+<div class="alert alert-info">
+  尚未配置 SMTP 邮箱，EPUB 仍会正常保存，可在 <a href="{{ url_for('settings.index') }}">设置页面</a>配置后手动重发。
+</div>
+{% endif %}
+
+{% if active_jobs %}
+<section class="card">
+  <div class="section-head">
+    <h2>正在处理</h2>
+    <a class="muted small" href="{{ url_for('jobs.index') }}">全部任务</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>收藏夹</th><th>状态</th><th>阶段</th><th>开始时间</th><th></th></tr></thead>
+      <tbody>
+      {% for job in active_jobs %}
+        <tr>
+          <td>{{ job["id"] }}</td>
+          <td>{{ job["collection_name"] }}</td>
+          <td><span class="badge status-{{ job["status"] }}">{{ STATUS_LABELS[job["status"]] }}</span></td>
+          <td>{{ STAGE_LABELS.get(job["stage"], job["stage"]) }}</td>
+          <td class="muted small">{{ job["started_at"]|localtime if job["started_at"] else "—" }}</td>
+          <td class="right"><a class="btn btn-ghost btn-sm" href="{{ url_for('jobs.detail', job_id=job["id"]) }}">查看</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="card">
+  <div class="section-head">
+    <h2>最近任务</h2>
+    <a class="muted small" href="{{ url_for('jobs.index') }}">全部任务</a>
+  </div>
+  {% if recent_jobs %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>收藏夹</th><th>状态</th><th>篇数</th><th>创建时间</th><th></th></tr></thead>
+      <tbody>
+      {% for job in recent_jobs %}
+        <tr>
+          <td>{{ job["id"] }}</td>
+          <td>{{ job["collection_name"] }}</td>
+          <td><span class="badge status-{{ job["status"] }}">{{ STATUS_LABELS[job["status"]] }}</span></td>
+          <td>{{ job["md_count"] if job["md_count"] is not none else "—" }}</td>
+          <td class="muted small">{{ job["created_at"]|localtime }}</td>
+          <td class="right"><a class="btn btn-ghost btn-sm" href="{{ url_for('jobs.detail', job_id=job["id"]) }}">查看</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">还没有任务。添加收藏夹后点击“立即下载”开始。</p>
+  {% endif %}
+</section>
+{% endblock %}

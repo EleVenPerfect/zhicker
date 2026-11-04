@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}收藏夹 · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>收藏夹</h1>
+    <p class="muted">每个收藏夹可以手动触发一次下载任务。</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('collections.new') }}">新增收藏夹</a>
+</div>
+
+{% if collections %}
+<div class="card table-wrap">
+  <table>
+    <thead>
+      <tr><th>名称</th><th>地址</th><th>最近任务</th><th class="right">操作</th></tr>
+    </thead>
+    <tbody>
+    {% for collection in collections %}
+      <tr>
+        <td>
+          <strong>{{ collection["name"] }}</strong>
+          <div class="muted small">#{{ collection["id"] }}</div>
+        </td>
+        <td>
+          <a class="truncate" href="{{ collection["url"] }}" target="_blank" rel="noopener noreferrer">{{ collection["url"] }}</a>
+        </td>
+        <td>
+          {% if collection["last_job_id"] %}
+          <a href="{{ url_for('jobs.detail', job_id=collection["last_job_id"]) }}">
+            <span class="badge status-{{ collection["last_status"] }}">{{ STATUS_LABELS[collection["last_status"]] }}</span>
+          </a>
+          <div class="muted small">{{ collection["last_job_at"]|localtime }}</div>
+          {% else %}
+          <span class="muted">未运行</span>
+          {% endif %}
+        </td>
+        <td class="right actions">
+          <form method="post" action="{{ url_for('collections.run', collection_id=collection["id"]) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">立即下载</button>
+          </form>
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('collections.edit', collection_id=collection["id"]) }}">编辑</a>
+          <form method="post" action="{{ url_for('collections.delete', collection_id=collection["id"]) }}" class="inline" data-confirm="确定删除收藏夹「{{ collection["name"] }}」？历史任务和 EPUB 会保留。">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card empty-card">
+  <h2>还没有收藏夹</h2>
+  <p class="muted">粘贴知乎收藏夹地址，例如 https://www.zhihu.com/collection/123456789。</p>
+  <a class="btn btn-primary" href="{{ url_for('collections.new') }}">添加第一个收藏夹</a>
+</div>
+{% endif %}
+{% endblock %}

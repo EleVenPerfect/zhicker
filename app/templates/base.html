@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}知乎收藏夹管理{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% set endpoint = request.endpoint or '' %}
+{% if session.get('user') %}
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="{{ url_for('dashboard.index') }}">知乎收藏夹</a>
+    <nav class="nav">
+      <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if endpoint == 'dashboard.index' else '' }}">概览</a>
+      <a href="{{ url_for('collections.index') }}" class="{{ 'active' if endpoint.startswith('collections.') else '' }}">收藏夹</a>
+      <a href="{{ url_for('jobs.index') }}" class="{{ 'active' if endpoint.startswith('jobs.') else '' }}">任务</a>
+      <a href="{{ url_for('epubs.index') }}" class="{{ 'active' if endpoint.startswith('epubs.') else '' }}">EPUB</a>
+      <a href="{{ url_for('cookies.index') }}" class="{{ 'active' if endpoint.startswith('cookies.') else '' }}">Cookie</a>
+      <a href="{{ url_for('settings.index') }}" class="{{ 'active' if endpoint.startswith('settings.') else '' }}">设置</a>
+    </nav>
+    <div class="userbox">
+      <span class="muted small">{{ session.get('user') }}</span>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-ghost btn-sm">退出</button>
+      </form>
+    </div>
+  </div>
+</header>
+{% endif %}
+
+<main class="container {{ 'login-container' if not session.get('user') else '' }}">
+  {% if PIPELINE_STUB_ACTIVE and session.get('user') %}
+  <div class="alert alert-warning">
+    当前已启用 <code>PIPELINE_STUB</code> 测试模式，下载任务不会访问知乎，仅用于验证 EPUB 和邮件流程。
+  </div>
+  {% endif %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flashes">
+      {% for category, message in messages %}
+      <div class="alert alert-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ "编辑收藏夹" if collection else "新增收藏夹" }} · 知乎收藏夹管理{% endblock %}
+{% block content %}
+{% if form %}
+  {% set name_value = form.get("name", "") %}
+  {% set url_value = form.get("url", "") %}
+{% elif collection %}
+  {% set name_value = collection["name"] %}
+  {% set url_value = collection["url"] %}
+{% else %}
+  {% set name_value = "" %}
+  {% set url_value = "" %}
+{% endif %}
+
+<div class="page-head">
+  <div>
+    <h1>{{ "编辑收藏夹" if collection else "新增收藏夹" }}</h1>
+    <p class="muted">地址必须是知乎收藏夹的公开链接。</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('collections.index') }}">返回列表</a>
+</div>
+
+<form method="post"
+      action="{{ url_for('collections.edit', collection_id=collection['id']) if collection else url_for('collections.new') }}"
+      class="card stack form-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label class="field">
+    <span>名称</span>
+    <input type="text" name="name" value="{{ name_value }}" maxlength="100" placeholder="例如：技术阅读">
+    <small class="muted">留空时会自动使用“收藏夹_&lt;数字ID&gt;”。</small>
+  </label>
+  <label class="field">
+    <span>收藏夹地址</span>
+    <input type="url" name="url" value="{{ url_value }}" required placeholder="https://www.zhihu.com/collection/123456789">
+    <small class="muted">支持带尾斜杠或查询参数的链接，保存时会自动归一化。</small>
+  </label>
+  <div class="actions">
+    <button type="submit" class="btn btn-primary">保存</button>
+    <a class="btn btn-ghost" href="{{ url_for('collections.index') }}">取消</a>
+  </div>
+</form>
+{% endblock %}

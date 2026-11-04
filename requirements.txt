@@ -1,0 +1,11 @@
+requests==2.32.3
+html2text==2024.2.26
+PyYAML==6.0.2
+ebooklib==0.20
+Markdown==3.10.2
+lxml==6.1.1
+Flask>=3.1,<4
+waitress>=3.0,<4
+cryptography>=43,<47
+python-dotenv>=1.0,<2
+tzdata>=2024.1
