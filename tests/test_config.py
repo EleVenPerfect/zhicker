@@ -1,3 +1,4 @@
+import logging
 import os
 import stat
 
@@ -15,6 +16,23 @@ def test_ensure_data_dirs_applies_mode(tmp_path):
     ]
     for path in paths:
         assert stat.S_IMODE(os.stat(path).st_mode) == 0o777
+
+
+def test_ensure_data_dirs_keeps_running_when_chmod_is_denied(
+    tmp_path, monkeypatch, caplog
+):
+    data_dir = tmp_path / "data"
+
+    def deny(path, mode):
+        raise PermissionError(1, "Operation not permitted", str(path))
+
+    monkeypatch.setattr(os, "chmod", deny)
+    with caplog.at_level(logging.WARNING, logger="app.config"):
+        ensure_data_dirs(str(data_dir), 0o700)
+
+    for name in ("epubs", "archives", "archive_failed", "work"):
+        assert (data_dir / name).is_dir()
+    assert "无法设置" in caplog.text
 
 
 def test_data_dir_mode_from_env(monkeypatch):

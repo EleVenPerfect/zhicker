@@ -1,6 +1,10 @@
+import logging
 import os
+import stat
 from datetime import timedelta
 from zoneinfo import ZoneInfo
+
+logger = logging.getLogger(__name__)
 
 SMTP_SECURITY_MODES = ("starttls", "ssl", "none")
 PIPELINE_STUB_MODES = ("off", "success", "empty", "fail")
@@ -145,4 +149,19 @@ def ensure_data_dirs(data_dir, mode=0o700):
         try:
             os.chmod(path, mode)
         except OSError as exc:
-            raise RuntimeError(f"设置数据目录权限失败: {path} ({exc})") from exc
+            # 挂载目录可能不属于容器用户（bind mount、CIFS 等）或文件系统不支持 chmod，
+            # 此时沿用现有权限继续运行，由 entrypoint 的写权限检查兜底。
+            try:
+                current = f"{stat.S_IMODE(os.stat(path).st_mode):04o}"
+            except OSError:
+                current = "未知"
+            logger.warning(
+                "无法设置 %s 的权限为 %04o（%s，当前 uid=%s，现有权限 %s）。"
+                "bind mount 时可在 .env 设置宿主机的 PUID/PGID，或在宿主机执行 chown；"
+                "将以现有权限继续运行。",
+                path,
+                mode,
+                exc,
+                os.getuid(),
+                current,
+            )

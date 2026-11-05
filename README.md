@@ -150,7 +150,7 @@ DATA_DIR_MODE=0777
 sudo chmod 0777 ./data
 ```
 
-`DATA_DIR_MODE` 会在每次启动时应用到 `epubs/`、`archives/`、`archive_failed/`、`work/`。注意 `0777` 会让本机所有用户都能读取甚至删除其中的 Cookie、EPUB 和归档，仅在个人可信任的机器上使用；只读访问建议用 `0755`。
+`DATA_DIR_MODE` 会在每次启动时应用到 `epubs/`、`archives/`、`archive_failed/`、`work/`。如果目录不属于容器用户或挂载的文件系统不支持 `chmod`，应用会记录警告并沿用现有权限继续启动。注意 `0777` 会让本机所有用户都能读取甚至删除其中的 Cookie、EPUB 和归档，仅在个人可信任的机器上使用；只读访问建议用 `0755`。
 
 ## 开发与测试
 
@@ -188,6 +188,9 @@ PIPELINE_STUB=success \
 
 **容器启动报配置错误**
 检查 `.env` 中 `SECRET_KEY` 和 `ADMIN_PASSWORD` 是否已填写，`SMTP_SECURITY` 是否为 `starttls` / `ssl` / `none`。
+
+**启动日志提示无法设置数据目录权限**
+例如 `无法设置 /data 的权限为 0700 (Operation not permitted)`。说明容器用户不是 `/data` 的所有者（bind mount、旧版本创建的数据卷，或 CIFS/NFS 等不支持 `chmod` 的挂载），应用会沿用现有权限继续启动。要消除告警并固定权限，请设置正确的 `PUID`/`PGID`，并在宿主机对数据目录执行 `sudo chown -R <uid>:<gid> ./data`。
 
 **想验证完整流程但没有知乎 Cookie**
 在 `.env` 中设置 `PIPELINE_STUB=success` 重启容器，即可用假数据跑通 EPUB 和邮件流程。验证完记得改回 `off`。

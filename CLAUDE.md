@@ -96,7 +96,7 @@ SQLite schema 在 `app/schema.sql`，`PRAGMA user_version` 当前为 2。`db.ini
 - `.env` 不入库，参考 `.env.example`。`Cookies.json`、`url.json` 只在任务临时目录短暂存在。
 - `PIPELINE_STUB` 支持 `off` / `success` / `empty` / `fail`，非 `off` 时不访问知乎。
 - 容器默认以 UID `10001` 运行；bind mount 场景通过 `.env` 的 `PUID`/`PGID` 映射为宿主机用户，`entrypoint.sh` 启动时检查 `DATA_DIR` 可写。
-- `DATA_DIR_MODE`（默认 `0700`）控制 `<DATA_DIR>` 及各子目录权限，启动时会对已存在目录重新 `chmod`；设为 `0777` 会向所有本地用户开放数据，属于明确的安全取舍。
+- `DATA_DIR_MODE`（默认 `0700`）控制 `<DATA_DIR>` 及各子目录权限，启动时会对已存在目录重新 `chmod`；若目录不属于容器用户或文件系统不支持 `chmod`，只记录警告并沿用现有权限；设为 `0777` 会向所有本地用户开放数据，属于明确的安全取舍。
 - 同一个数据卷只运行一个应用实例，worker 恢复逻辑按单实例设计。
 - 邮箱附件大小受服务商限制，收藏夹图片很多时 tar.gz 可能过大导致邮件失败；文件仍保留在磁盘上。
 
