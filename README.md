@@ -189,6 +189,11 @@ PIPELINE_STUB=success \
 **容器启动报配置错误**
 检查 `.env` 中 `SECRET_KEY` 和 `ADMIN_PASSWORD` 是否已填写，`SMTP_SECURITY` 是否为 `starttls` / `ssl` / `none`。
 
+**启动报「数据目录不可写」**
+日志会打印容器用户的 uid/gid 和 `/data` 的所有者与权限，通常是挂载目录不属于容器用户：
+- bind mount：在 `.env` 设置 `PUID`/`PGID` 为宿主机用户的 `id -u` / `id -g`，并在宿主机执行 `sudo chown -R "$(id -u):$(id -g)" ./data`。
+- 命名卷：保持容器默认用户 10001，执行一次 `docker run --rm -u 0 -v <卷名>:/data <镜像> chown -R 10001:10001 /data`。卷名可用 `docker volume ls` 查看，通常是 `<compose 项目名>_zhihu_data`。
+
 **启动日志提示无法设置数据目录权限**
 例如 `无法设置 /data 的权限为 0700 (Operation not permitted)`。说明容器用户不是 `/data` 的所有者（bind mount、旧版本创建的数据卷，或 CIFS/NFS 等不支持 `chmod` 的挂载），应用会沿用现有权限继续启动。要消除告警并固定权限，请设置正确的 `PUID`/`PGID`，并在宿主机对数据目录执行 `sudo chown -R <uid>:<gid> ./data`。
 
