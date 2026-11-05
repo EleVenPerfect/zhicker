@@ -41,6 +41,21 @@ def _env_int(name, default):
         raise RuntimeError(f"环境变量 {name} 必须是整数，当前值: {value}") from exc
 
 
+def _env_mode(name, default):
+    value = _env(name)
+    if not value:
+        return default
+    try:
+        mode = int(value, 8)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"环境变量 {name} 必须是八进制权限值（如 0700、0777），当前值: {value}"
+        ) from exc
+    if not 0 <= mode <= 0o777:
+        raise RuntimeError(f"环境变量 {name} 必须在 0000-0777 之间，当前值: {value}")
+    return mode
+
+
 def config_from_env():
     data_dir = os.path.abspath(_env("DATA_DIR", "/data"))
     app_timezone = _env("APP_TIMEZONE", _env("TZ", "Asia/Shanghai")) or "Asia/Shanghai"
@@ -50,6 +65,7 @@ def config_from_env():
         "ADMIN_USERNAME": _env("ADMIN_USERNAME", "admin") or "admin",
         "ADMIN_PASSWORD": _env_raw("ADMIN_PASSWORD"),
         "DATA_DIR": data_dir,
+        "DATA_DIR_MODE": _env_mode("DATA_DIR_MODE", 0o700),
         "DB_PATH": os.path.join(data_dir, "app.db"),
         "PORT": _env_int("PORT", 8080),
         "TZ": _env("TZ", "Asia/Shanghai") or "Asia/Shanghai",
@@ -117,11 +133,16 @@ def validate_config(config):
         raise RuntimeError(f"数据目录不可写: {data_dir} ({exc})") from exc
 
 
-def ensure_data_dirs(data_dir):
+def ensure_data_dirs(data_dir, mode=0o700):
     for path in (
         data_dir,
         os.path.join(data_dir, "epubs"),
         os.path.join(data_dir, "archives"),
+        os.path.join(data_dir, "archive_failed"),
         os.path.join(data_dir, "work"),
     ):
-        os.makedirs(path, mode=0o700, exist_ok=True)
+        os.makedirs(path, mode=mode, exist_ok=True)
+        try:
+            os.chmod(path, mode)
+        except OSError as exc:
+            raise RuntimeError(f"设置数据目录权限失败: {path} ({exc})") from exc

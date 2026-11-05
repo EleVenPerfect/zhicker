@@ -47,6 +47,7 @@ docker compose logs -f
 | `ADMIN_USERNAME` | `admin` | 登录用户名 |
 | `ADMIN_PASSWORD` | 必填 | 登录密码 |
 | `DATA_DIR` | `/data` | SQLite、EPUB、原始数据归档、临时目录的根目录 |
+| `DATA_DIR_MODE` | `0700` | 数据目录权限；`0755` 允许他人读取，`0777` 允许所有人读写/删除 |
 | `PORT` | `8080` | 容器内监听端口 |
 | `HOST_PORT` | `8080` | 映射到宿主机的端口 |
 | `TZ` | `Asia/Shanghai` | 容器时区 |
@@ -115,13 +116,41 @@ SMTP 配置可以在 Web「设置」页面覆盖，保存后写入 SQLite，优�
 
 同一个数据卷只运行一个应用实例：后台任务队列和启动时的中断恢复都是按单实例设计的。备份时只需要备份 Docker 卷 `zhihu_data`（或 `/data` 目录），恢复时把数据卷挂回即可。
 
-使用 bind mount 而不是命名卷时，注意容器以 UID `10001` 运行：
+使用 bind mount 而不是命名卷时，建议让容器以宿主机用户身份运行，这样宿主机可以直接访问数据目录：
 
 ```bash
-sudo mkdir -p ./data
-sudo chown -R 10001:10001 ./data
+mkdir -p ./data
 # docker-compose.yml 中把 zhihu_data:/data 改成 ./data:/data
 ```
+
+在 `.env` 中把 `PUID` / `PGID` 设为宿主机用户（先用 `id -u` 和 `id -g` 查看）：
+
+```bash
+PUID=1000
+PGID=1000
+```
+
+`docker-compose.yml` 会把它们作为容器的 `user`。容器写出的文件归该用户所有，目录权限仍保持 `0700`。如果数据目录此前由容器以 UID `10001` 创建，切换后需要一次性改回当前用户：
+
+```bash
+sudo chown -R "$(id -u):$(id -g)" ./data
+```
+
+继续使用命名卷时不要设置 `PUID` / `PGID`，容器保持默认 UID `10001`。
+
+如果不需要按用户隔离，也可以直接向所有人开放数据目录，在 `.env` 中设置：
+
+```bash
+DATA_DIR_MODE=0777
+```
+
+并在宿主机对挂载根目录执行一次：
+
+```bash
+sudo chmod 0777 ./data
+```
+
+`DATA_DIR_MODE` 会在每次启动时应用到 `epubs/`、`archives/`、`archive_failed/`、`work/`。注意 `0777` 会让本机所有用户都能读取甚至删除其中的 Cookie、EPUB 和归档，仅在个人可信任的机器上使用；只读访问建议用 `0755`。
 
 ## 开发与测试
 

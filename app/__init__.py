@@ -44,7 +44,7 @@ def create_app(overrides=None, start_worker=False):
     if not app.config.get("TESTING"):
         validate_config(app.config)
 
-    ensure_data_dirs(app.config["DATA_DIR"])
+    ensure_data_dirs(app.config["DATA_DIR"], app.config["DATA_DIR_MODE"])
     init_db(app)
 
     init_auth(app)

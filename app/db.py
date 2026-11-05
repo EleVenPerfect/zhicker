@@ -28,7 +28,7 @@ def db_session(path):
 
 
 def init_db(app):
-    ensure_data_dirs(app.config["DATA_DIR"])
+    ensure_data_dirs(app.config["DATA_DIR"], app.config["DATA_DIR_MODE"])
     conn = connect(app.config["DB_PATH"])
     try:
         version = conn.execute("PRAGMA user_version").fetchone()[0]

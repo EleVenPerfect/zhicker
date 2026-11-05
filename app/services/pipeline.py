@@ -310,7 +310,12 @@ def _archive_raw_data(config, conn, job, workdir, date_label):
 
 def _quarantine_raw(config, job_id, workdir):
     target = os.path.join(config["DATA_DIR"], "archive_failed", str(job_id))
-    os.makedirs(target, mode=0o700, exist_ok=True)
+    mode = config.get("DATA_DIR_MODE", 0o700)
+    os.makedirs(target, mode=mode, exist_ok=True)
+    try:
+        os.chmod(target, mode)
+    except OSError:
+        pass
     for name in ("source", "img"):
         source = os.path.join(workdir, name)
         if not os.path.isdir(source):
