@@ -1,5 +1,6 @@
 def register_blueprints(app):
     from . import (
+        archive_routes,
         auth_routes,
         collection_routes,
         cookie_routes,
@@ -15,6 +16,7 @@ def register_blueprints(app):
         collection_routes,
         job_routes,
         epub_routes,
+        archive_routes,
         cookie_routes,
         settings_routes,
     ):

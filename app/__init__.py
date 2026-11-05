@@ -20,6 +20,7 @@ STAGE_LABELS = {
     "collecting": "抓取文章",
     "converting": "生成 EPUB",
     "finalizing": "保存 EPUB",
+    "archiving": "打包原始数据",
     "emailing": "发送邮件",
     "done": "完成",
     "failed": "失败",

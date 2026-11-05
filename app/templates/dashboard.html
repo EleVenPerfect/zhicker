@@ -4,7 +4,7 @@
 <div class="page-head">
   <div>
     <h1>概览</h1>
-    <p class="muted">下载任务串行执行，EPUB 生成后只保留最终文件。</p>
+    <p class="muted">下载任务串行执行，EPUB 生成后原始数据会打包为 tar.gz 保留。</p>
   </div>
   <div class="actions">
     <a class="btn btn-ghost" href="{{ url_for('cookies.index') }}">更新 Cookie</a>
@@ -29,6 +29,11 @@
     <span class="muted small">占用 {{ epub_bytes|filesize }}</span>
   </div>
   <div class="card stat">
+    <span class="stat-label">原始数据</span>
+    <strong class="stat-value">{{ archive_count }}</strong>
+    <span class="muted small">占用 {{ archive_bytes|filesize }}</span>
+  </div>
+  <div class="card stat">
     <span class="stat-label">结果</span>
     <strong class="stat-value">{{ status_counts["success"] }}</strong>
     <span class="muted small">成功 · 失败 {{ status_counts["failed"] }}</span>
@@ -51,7 +56,7 @@
 </div>
 {% elif not smtp_configured %}
 <div class="alert alert-info">
-  尚未配置 SMTP 邮箱，EPUB 仍会正常保存，可在 <a href="{{ url_for('settings.index') }}">设置页面</a>配置后手动重发。
+  尚未配置 SMTP 邮箱，EPUB 和原始数据归档仍会正常保存，可在 <a href="{{ url_for('settings.index') }}">设置页面</a>配置后手动重发。
 </div>
 {% endif %}
 

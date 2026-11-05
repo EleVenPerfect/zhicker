@@ -1,7 +1,15 @@
 from flask import Blueprint, current_app, render_template
 
 from app.db import get_db
-from app.services import collections, cookies, epub_store, jobs, mailer, settings
+from app.services import (
+    archive_store,
+    collections,
+    cookies,
+    epub_store,
+    jobs,
+    mailer,
+    settings,
+)
 
 bp = Blueprint("dashboard", __name__)
 
@@ -21,6 +29,8 @@ def index():
         status_counts=status_counts,
         epub_count=epub_store.count_epubs(conn),
         epub_bytes=epub_store.total_epub_bytes(conn),
+        archive_count=archive_store.count_archives(conn),
+        archive_bytes=archive_store.total_archive_bytes(conn),
         active_jobs=jobs.list_active_jobs(conn, limit=5),
         recent_jobs=jobs.list_recent_jobs(conn, limit=8),
         smtp_configured=mailer.is_configured(smtp["values"]),

@@ -118,5 +118,10 @@ def validate_config(config):
 
 
 def ensure_data_dirs(data_dir):
-    for path in (data_dir, os.path.join(data_dir, "epubs"), os.path.join(data_dir, "work")):
+    for path in (
+        data_dir,
+        os.path.join(data_dir, "epubs"),
+        os.path.join(data_dir, "archives"),
+        os.path.join(data_dir, "work"),
+    ):
         os.makedirs(path, mode=0o700, exist_ok=True)

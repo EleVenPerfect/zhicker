@@ -1,7 +1,7 @@
 from flask import Blueprint, abort, render_template, request
 
 from app.db import get_db
-from app.services import epub_store, jobs
+from app.services import archive_store, epub_store, jobs
 
 bp = Blueprint("jobs", __name__, url_prefix="/jobs")
 
@@ -36,4 +36,5 @@ def detail(job_id):
     if job is None:
         abort(404)
     epub = epub_store.epub_for_job(conn, job_id)
-    return render_template("jobs/detail.html", job=job, epub=epub)
+    archive = archive_store.archive_for_job(conn, job_id)
+    return render_template("jobs/detail.html", job=job, epub=epub, archive=archive)

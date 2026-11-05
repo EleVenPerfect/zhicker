@@ -32,9 +32,10 @@ def init_db(app):
     conn = connect(app.config["DB_PATH"])
     try:
         version = conn.execute("PRAGMA user_version").fetchone()[0]
-        if version < 1:
+        # schema.sql 目前全部是 IF NOT EXISTS，v1 库可安全重放补出 v2 新增的表。
+        if version < 2:
             conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-            conn.execute("PRAGMA user_version = 1")
+            conn.execute("PRAGMA user_version = 2")
         conn.execute("PRAGMA journal_mode = WAL")
         conn.commit()
     finally:

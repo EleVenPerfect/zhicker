@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}原始数据 · 知乎收藏夹管理{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>原始数据</h1>
+    <p class="muted">每次任务生成 EPUB 后，Markdown 和图片会打包为 tar.gz 保存在这里，临时目录已删除。</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('settings.index') }}">邮箱设置</a>
+</div>
+
+{% if not smtp_configured %}
+<div class="alert alert-info">
+  尚未配置 SMTP 邮箱，新生成的原始数据归档会保存在这里，但不会自动发送。
+</div>
+{% endif %}
+
+{% if archives %}
+<div class="card table-wrap">
+  <table>
+    <thead>
+      <tr><th>文件</th><th>收藏夹</th><th>大小</th><th>生成时间</th><th>邮件</th><th class="right">操作</th></tr>
+    </thead>
+    <tbody>
+    {% for archive in archives %}
+      <tr>
+        <td>
+          <strong>{{ archive["display_name"] }}</strong>
+          <div class="muted small">{{ archive["stored_name"] }}</div>
+        </td>
+        <td>{{ archive["collection_name"] }}</td>
+        <td>{{ archive["size_bytes"]|filesize }}</td>
+        <td class="muted small">{{ archive["created_at"]|localtime }}</td>
+        <td>
+          <span class="badge email-{{ archive["email_status"] }}">{{ EMAIL_STATUS_LABELS[archive["email_status"]] }}</span>
+          {% if archive["last_email_error"] %}
+          <div class="muted small truncate" title="{{ archive["last_email_error"] }}">{{ archive["last_email_error"] }}</div>
+          {% endif %}
+        </td>
+        <td class="right actions">
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('archives.download', archive_id=archive["id"]) }}">下载</a>
+          <form method="post" action="{{ url_for('archives.resend', archive_id=archive["id"]) }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm">重发邮件</button>
+          </form>
+          <form method="post" action="{{ url_for('archives.delete', archive_id=archive["id"]) }}" class="inline" data-confirm="确定删除原始数据归档「{{ archive["display_name"] }}」？文件删除后无法恢复。">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if pages > 1 %}
+<nav class="pagination">
+  {% if page > 1 %}<a class="btn btn-ghost btn-sm" href="{{ url_for('archives.index', page=page-1) }}">上一页</a>{% endif %}
+  <span class="muted small">第 {{ page }} / {{ pages }} 页，共 {{ total }} 条</span>
+  {% if page < pages %}<a class="btn btn-ghost btn-sm" href="{{ url_for('archives.index', page=page+1) }}">下一页</a>{% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card empty-card">
+  <h2>还没有原始数据归档</h2>
+  <p class="muted">运行一个下载任务后，生成的 tar.gz 会出现在这里。</p>
+  <a class="btn btn-primary" href="{{ url_for('collections.index') }}">前往收藏夹</a>
+</div>
+{% endif %}
+{% endblock %}

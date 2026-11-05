@@ -62,3 +62,21 @@ CREATE TABLE IF NOT EXISTS epubs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_epubs_created ON epubs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS archives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL,
+    collection_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    stored_name TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    email_status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (email_status IN ('pending', 'sent', 'failed', 'skipped')),
+    email_attempts INTEGER NOT NULL DEFAULT 0,
+    last_email_at TEXT,
+    last_email_error TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_archives_created ON archives(created_at DESC);

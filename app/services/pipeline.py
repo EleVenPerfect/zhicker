@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 from app.db import db_session
 from app.services import cookies as cookies_service
-from app.services import epub_store, jobs, mailer, settings
+from app.services import archive_store, epub_store, jobs, mailer, settings
 
 LEGACY_DIR = Path(__file__).resolve().parent.parent / "pipeline" / "legacy"
 COLLECTOR = LEGACY_DIR / "zhihu-artical-collect2markdown.py"
@@ -53,6 +53,7 @@ def run_job(app, job_id):
             _prepare(config, conn, job, workdir)
             jobs.set_stage(conn, job_id, "collecting")
             _collect(config, job, workdir, log_path)
+            _discard_credentials(workdir)
 
             md_count = _count_markdown(os.path.join(workdir, "source"))
             if md_count == 0:
@@ -62,9 +63,10 @@ def run_job(app, job_id):
                 )
             jobs.set_md_count(conn, job_id, md_count)
 
+            date_label = _today(config)
             jobs.set_stage(conn, job_id, "converting")
             display_name = epub_store.build_display_name(
-                job["collection_name"], _today(config)
+                job["collection_name"], date_label
             )
             temp_epub = os.path.join(workdir, display_name)
             _convert(config, workdir, temp_epub, log_path)
@@ -78,19 +80,34 @@ def run_job(app, job_id):
                 display_name,
                 temp_epub,
             )
+
+            jobs.set_stage(conn, job_id, "archiving")
+            try:
+                archive = _archive_raw_data(
+                    config, conn, job, workdir, date_label
+                )
+            except Exception as exc:
+                # 打包失败时不能直接丢弃原始数据；凭据已在抓取后删除。
+                try:
+                    preserved = _quarantine_raw(config, job_id, workdir)
+                    detail = f"；原始数据已保留在 {preserved}"
+                except OSError as move_exc:
+                    detail = f"；保留原始数据失败: {move_exc}"
+                raise PipelineError(f"打包原始数据失败: {exc}{detail}") from exc
+
             log_text = _log_tail(log_path, config["JOB_LOG_MAX_BYTES"])
 
-            # EPUB 已经保存在最终目录，抓取/图片等临时数据立即清理。
+            # EPUB 与原始数据归档都已落盘，抓取/图片等临时数据立即清理。
             shutil.rmtree(workdir, ignore_errors=True)
 
             jobs.set_stage(conn, job_id, "emailing")
             try:
-                _send_email(config, conn, job, stored, md_count)
+                _send_email(config, conn, job, stored, archive, md_count, date_label)
             except Exception as exc:
-                # EPUB 已经落盘，邮件异常不应把任务标记为失败。
+                # EPUB 与归档已经落盘，邮件异常不应把任务标记为失败。
                 try:
-                    epub_store.set_email_result(
-                        conn, stored["id"], "failed", f"邮件发送异常: {exc}"
+                    _set_email_results(
+                        conn, stored, archive, "failed", f"邮件发送异常: {exc}"
                     )
                 except Exception:
                     pass
@@ -263,50 +280,146 @@ def _kill_process_group(process):
         pass
 
 
-def _send_email(config, conn, job, stored, md_count):
+def _discard_credentials(workdir):
+    for name in ("Cookies.json", "url.json"):
+        try:
+            os.remove(os.path.join(workdir, name))
+        except FileNotFoundError:
+            pass
+
+
+def _archive_raw_data(config, conn, job, workdir, date_label):
+    archive_display_name = archive_store.build_display_name(
+        job["collection_name"], date_label
+    )
+    temp_archive = os.path.join(workdir, archive_display_name)
+    archive_store.create_archive(
+        os.path.join(workdir, "source"),
+        os.path.join(workdir, "img"),
+        temp_archive,
+    )
+    return archive_store.store_archive(
+        conn,
+        config["DATA_DIR"],
+        job["id"],
+        job["collection_name"],
+        archive_display_name,
+        temp_archive,
+    )
+
+
+def _quarantine_raw(config, job_id, workdir):
+    target = os.path.join(config["DATA_DIR"], "archive_failed", str(job_id))
+    os.makedirs(target, mode=0o700, exist_ok=True)
+    for name in ("source", "img"):
+        source = os.path.join(workdir, name)
+        if not os.path.isdir(source):
+            continue
+        destination = os.path.join(target, name)
+        if os.path.exists(destination):
+            shutil.rmtree(destination, ignore_errors=True)
+        os.replace(source, destination)
+    return target
+
+
+def _send_email(config, conn, job, stored, archive, md_count, date_label):
     resolved = settings.resolve_smtp(conn, config)
     values = resolved["values"]
 
     if resolved["decrypt_failed"]:
-        epub_store.set_email_result(
+        _set_email_results(
             conn,
-            stored["id"],
+            stored,
+            archive,
             "failed",
             "SMTP 密码解密失败（SECRET_KEY 可能已变更），请重新保存 SMTP 配置后重发。",
         )
         return
 
     if not mailer.is_configured(values):
-        epub_store.set_email_result(
+        _set_email_results(
             conn,
-            stored["id"],
+            stored,
+            archive,
             "skipped",
-            "SMTP 未配置，EPUB 已保存，可稍后在设置页配置邮箱并重发。",
+            "SMTP 未配置，EPUB 和原始数据已保存，可稍后在设置页配置邮箱并重发。",
             attempted=False,
         )
         return
 
-    try:
-        with open(stored["path"], "rb") as handle:
-            epub_bytes = handle.read()
-    except OSError as exc:
-        epub_store.set_email_result(
-            conn, stored["id"], "failed", f"读取 EPUB 文件失败: {exc}"
+    epub_bytes, epub_error = _read_file(stored["path"])
+    archive_bytes, archive_error = _read_file(archive["path"])
+
+    if epub_bytes is not None:
+        ok, error = mailer.send_epub(
+            values,
+            epub_bytes,
+            stored["display_name"],
+            job["collection_name"],
+            md_count,
+            date_label,
+            archive_bytes=archive_bytes,
+            archive_name=archive["display_name"] if archive_bytes is not None else None,
+        )
+        if ok:
+            epub_store.set_email_result(conn, stored["id"], "sent")
+            if archive_bytes is not None:
+                archive_store.set_email_result(conn, archive["id"], "sent")
+            else:
+                archive_store.set_email_result(
+                    conn,
+                    archive["id"],
+                    "failed",
+                    archive_error or "读取原始数据归档失败",
+                )
+        else:
+            epub_store.set_email_result(conn, stored["id"], "failed", error)
+            archive_store.set_email_result(
+                conn,
+                archive["id"],
+                "failed",
+                archive_error or error,
+            )
+        return
+
+    # EPUB 读取失败时仍尝试单独发送归档。
+    epub_store.set_email_result(
+        conn, stored["id"], "failed", epub_error or "读取 EPUB 文件失败"
+    )
+    if archive_bytes is None:
+        archive_store.set_email_result(
+            conn, archive["id"], "failed", archive_error or "读取原始数据归档失败"
         )
         return
 
-    ok, error = mailer.send_epub(
+    ok, error = mailer.send_archive(
         values,
-        epub_bytes,
-        stored["display_name"],
+        archive_bytes,
+        archive["display_name"],
         job["collection_name"],
         md_count,
-        _today(config),
+        date_label,
     )
     if ok:
-        epub_store.set_email_result(conn, stored["id"], "sent")
+        archive_store.set_email_result(conn, archive["id"], "sent")
     else:
-        epub_store.set_email_result(conn, stored["id"], "failed", error)
+        archive_store.set_email_result(conn, archive["id"], "failed", error)
+
+
+def _read_file(path):
+    try:
+        with open(path, "rb") as handle:
+            return handle.read(), None
+    except OSError as exc:
+        return None, f"读取文件失败: {exc}"
+
+
+def _set_email_results(conn, stored, archive, status, error=None, attempted=True):
+    epub_store.set_email_result(conn, stored["id"], status, error, attempted=attempted)
+    if archive is not None:
+        archive_store.set_email_result(
+            conn, archive["id"], status, error, attempted=attempted
+        )
 
 
 def _count_markdown(source_dir):

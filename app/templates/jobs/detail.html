@@ -30,6 +30,7 @@
     <div><dt>耗时</dt><dd>{{ job["started_at"]|duration(job["finished_at"]) or "—" }}</dd></div>
     <div><dt>文章数</dt><dd>{{ job["md_count"] if job["md_count"] is not none else "—" }}</dd></div>
     <div><dt>EPUB</dt><dd>{{ epub["display_name"] if epub else "—" }}</dd></div>
+    <div><dt>原始数据</dt><dd>{{ archive["display_name"] if archive else "—" }}</dd></div>
   </dl>
 
   {% if job["error"] %}
@@ -52,6 +53,22 @@
       {% endif %}
     </div>
     <a class="btn btn-primary btn-sm" href="{{ url_for('epubs.download', epub_id=epub["id"]) }}">下载 EPUB</a>
+  </div>
+  {% endif %}
+
+  {% if archive %}
+  <div class="subcard">
+    <div>
+      <strong>{{ archive["display_name"] }}</strong>
+      <div class="muted small">
+        {{ archive["size_bytes"]|filesize }} · 生成于 {{ archive["created_at"]|localtime }} ·
+        邮件：<span class="badge email-{{ archive["email_status"] }}">{{ EMAIL_STATUS_LABELS[archive["email_status"]] }}</span>
+      </div>
+      {% if archive["last_email_error"] %}
+      <div class="muted small">{{ archive["last_email_error"] }}</div>
+      {% endif %}
+    </div>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('archives.download', archive_id=archive["id"]) }}">下载原始数据</a>
   </div>
   {% endif %}
 </section>

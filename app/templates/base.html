@@ -19,6 +19,7 @@
       <a href="{{ url_for('collections.index') }}" class="{{ 'active' if endpoint.startswith('collections.') else '' }}">收藏夹</a>
       <a href="{{ url_for('jobs.index') }}" class="{{ 'active' if endpoint.startswith('jobs.') else '' }}">任务</a>
       <a href="{{ url_for('epubs.index') }}" class="{{ 'active' if endpoint.startswith('epubs.') else '' }}">EPUB</a>
+      <a href="{{ url_for('archives.index') }}" class="{{ 'active' if endpoint.startswith('archives.') else '' }}">原始数据</a>
       <a href="{{ url_for('cookies.index') }}" class="{{ 'active' if endpoint.startswith('cookies.') else '' }}">Cookie</a>
       <a href="{{ url_for('settings.index') }}" class="{{ 'active' if endpoint.startswith('settings.') else '' }}">设置</a>
     </nav>

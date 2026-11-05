@@ -2,18 +2,17 @@
 
 在现有抓取流水线之上封装的一个单容器 Web 应用：
 
-- 登录后管理收藏夹地址、知乎 Cookie、下载任务、EPUB 和 SMTP 邮箱。
+- 登录后管理收藏夹地址、知乎 Cookie、下载任务、EPUB、原始数据归档和 SMTP 邮箱。
 - 每个下载任务把指定收藏夹抓取为 Markdown/图片，再转换成 EPUB。
-- EPUB 生成成功后立即删除 Markdown、图片和临时目录，只保留最终 EPUB。
-- EPUB 自动通过 SMTP 发送到配置的邮箱；发送失败不影响文件保存，可手动重发。
-- EPUB 在页面中可下载、重发邮件、手动删除。
+- EPUB 生成成功后，Markdown 和图片会打包成 tar.gz 保存，随后删除临时目录。
+- EPUB 和原始数据归档会在同一封邮件中作为附件发送；发送失败不影响文件保存，可手动重发。
+- EPUB 和原始数据归档在页面中分别可下载、重发邮件、手动删除。
 - 所有管理数据保存在容器内 `/data/app.db`（SQLite），建议挂载持久化卷。
 - 仅支持手动触发下载，不做定时调度。
 
 ## 快速开始
 
 ```bash
-cd new
 cp .env.example .env
 
 # 生成 SECRET_KEY，并填入 .env
@@ -30,7 +29,7 @@ docker compose up -d --build
 1. 进入「设置」填写 SMTP 信息，保存后点「发送测试邮件」。
 2. 进入「Cookie」粘贴浏览器 Copy as cURL 的内容，保存并测试连接。
 3. 进入「收藏夹」新增收藏夹地址，点击「立即下载」。
-4. 任务完成后在「EPUB」页面下载文件，邮件会自动发送。
+4. 任务完成后在「EPUB」页面下载文件，在「原始数据」页面下载 tar.gz，邮件会自动发送。
 
 查看日志：
 
@@ -38,7 +37,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-如果服务器无法拉取 Docker Hub，可在 `.env` 中把 `BASE_IMAGE` 改成可用的 Python 3.12 slim 镜像（例如父项目 Dockerfile 中使用的内网/镜像站地址），把 `PIP_INDEX_URL` 改成可用的 PyPI 镜像，然后重新执行 `docker compose up -d --build`。
+如果服务器无法拉取 Docker Hub，可在 `.env` 中把 `BASE_IMAGE` 改成可用的 Python 3.12 slim 镜像（例如公司内网或镜像站提供的地址），把 `PIP_INDEX_URL` 改成可用的 PyPI 镜像，然后重新执行 `docker compose up -d --build`。
 
 ## 环境变量
 
@@ -47,7 +46,7 @@ docker compose logs -f
 | `SECRET_KEY` | 必填 | 用于 session 签名和 SQLite 中 Cookie/SMTP 密码的加密，至少 16 位随机字符串 |
 | `ADMIN_USERNAME` | `admin` | 登录用户名 |
 | `ADMIN_PASSWORD` | 必填 | 登录密码 |
-| `DATA_DIR` | `/data` | SQLite、EPUB、临时目录的根目录 |
+| `DATA_DIR` | `/data` | SQLite、EPUB、原始数据归档、临时目录的根目录 |
 | `PORT` | `8080` | 容器内监听端口 |
 | `HOST_PORT` | `8080` | 映射到宿主机的端口 |
 | `TZ` | `Asia/Shanghai` | 容器时区 |
@@ -91,20 +90,26 @@ SMTP 配置可以在 Web「设置」页面覆盖，保存后写入 SQLite，优�
 
 ```text
 /data/
-├── app.db          # SQLite：Cookie、收藏夹、任务、EPUB 记录、SMTP 配置
-├── epubs/          # 唯一的长期产物，文件名由服务端生成
-└── work/           # 下载临时目录，任务结束即删除
+├── app.db            # SQLite：Cookie、收藏夹、任务、EPUB/归档记录、SMTP 配置
+├── epubs/            # 长期产物：EPUB
+├── archives/         # 长期产物：原始数据 tar.gz（Markdown + 图片）
+├── archive_failed/   # 打包失败时保留的原始数据，供人工排查
+└── work/             # 下载临时目录，任务结束即删除
 ```
 
 每个任务的工作流程：
 
 1. 在 `/data/work/<任务ID>/` 写入该任务的 `url.json` 和 `Cookies.json`。
-2. 调用内置抓取脚本下载 Markdown 和图片。
+2. 调用内置抓取脚本下载 Markdown 和图片，抓取完成后立即删除这两个配置文件。
 3. 调用内置 EPUB 转换脚本，输出到任务目录。
-4. EPUB 校验通过后移动到 `/data/epubs/`，立即删除整个任务目录。
-5. 发送邮件（如果已配置 SMTP）。
+4. EPUB 校验通过后移动到 `/data/epubs/`。
+5. 把 `source/` 和 `img/` 打包成 tar.gz，校验后移动到 `/data/archives/`。
+6. 删除整个任务目录。
+7. 发送邮件（EPUB 与 tar.gz 同一封邮件，如果已配置 SMTP）。
 
-失败任务同样会清理临时目录，失败原因和日志尾部保存在任务详情中。不会生成 ZIP 归档。磁盘上唯一长期保留的下载产物是 EPUB；任务记录和最多 64 KiB 的诊断日志留在 SQLite 中，方便排查问题。
+失败任务同样会清理临时目录，失败原因和日志尾部保存在任务详情中。若打包 tar.gz 失败，任务会标记失败，但 `source/` 和 `img/` 会保留到 `/data/archive_failed/<任务ID>/`，不会直接丢弃。归档内容不包含 `Cookies.json`、`url.json` 或运行日志。任务记录和最多 64 KiB 的诊断日志留在 SQLite 中，方便排查问题。
+
+> 邮件附件大小受邮箱服务商限制（常见为 25–50 MB）。原始数据包含图片，收藏夹较大时压缩包可能超出限制，导致整封邮件发送失败；此时 EPUB 和 tar.gz 仍保存在磁盘上，可分别下载或调大服务商限制后重发。
 
 服务重启时，正在运行的任务会被标记为失败（进程已经不存在），需要重新点击下载；仍在排队的任务会自动继续。
 
@@ -121,7 +126,6 @@ sudo chown -R 10001:10001 ./data
 ## 开发与测试
 
 ```bash
-cd new
 python3 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt
 
@@ -138,7 +142,7 @@ PIPELINE_STUB=success \
 
 ## 关于内置脚本
 
-`app/pipeline/legacy/` 下的三个脚本（抓取、EPUB 转换、Cookie 解析）是从仓库根目录原样复制的（当前对应提交 `2b0b809`），使 `new/` 可以作为独立构建上下文。上游修改这些脚本后，需要手动同步到 `new/app/pipeline/legacy/`。抓取器文件名保留了历史拼写 `zhihu-artical-collect2markdown.py`。
+`app/pipeline/legacy/` 下的三个脚本（抓取、EPUB 转换、Cookie 解析）是从上游四阶段流水线项目原样复制的（对应上游提交 `2b0b809`）。上游修改这些脚本后，需要手动同步到 `app/pipeline/legacy/`。抓取器文件名保留了历史拼写 `zhihu-artical-collect2markdown.py`。
 
 任务执行不依赖旧脚本的退出码：抓取器在配置或网络错误时也可能以 0 退出，因此应用以实际生成的 `.md` 文件数量作为成功依据，并把完整输出保存在任务日志中。
 
@@ -148,7 +152,7 @@ PIPELINE_STUB=success \
 先检查 Cookie 是否过期。在 Cookie 页面点「测试连接」；如果失败，重新从浏览器复制 cURL。收藏夹本身为空也会触发同样提示。
 
 **邮件发送失败**
-在设置页检查 SMTP 主机、端口、加密方式和授权码。可以先发测试邮件；EPUB 不会因邮件失败而丢失，可以在 EPUB 列表点「重发邮件」。
+在设置页检查 SMTP 主机、端口、加密方式和授权码。可以先发测试邮件；EPUB 和原始数据归档不会因邮件失败而丢失，可以在各自列表点「重发邮件」。如果错误提示附件过大，说明压缩包超过了服务商限制，请改为在「原始数据」页面直接下载。
 
 **EPUB 页面下载提示文件不存在**
 可能是手动清理了 `/data/epubs` 中的文件。删除该记录后重新运行任务即可。

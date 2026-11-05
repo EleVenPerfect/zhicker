@@ -462,6 +462,10 @@ tbody tr:hover {
   padding: 0.8rem 1rem;
 }
 
+.subcard + .subcard {
+  margin-top: 0.6rem;
+}
+
 .log {
   background: #0f172a;
   border-radius: 10px;

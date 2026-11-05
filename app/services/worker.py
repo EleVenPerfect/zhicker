@@ -78,6 +78,10 @@ class JobWorker:
                 row["stored_name"]
                 for row in fetch_all(conn, "SELECT stored_name FROM epubs")
             }
+            known_archives = {
+                row["stored_name"]
+                for row in fetch_all(conn, "SELECT stored_name FROM archives")
+            }
 
         work_root = os.path.join(config["DATA_DIR"], "work")
         for entry in _safe_scandir(work_root):
@@ -95,6 +99,18 @@ class JobWorker:
                     os.remove(entry.path)
                 except OSError:
                     logger.warning("清理孤立 EPUB 失败: %s", entry.path)
+
+        archive_root = os.path.join(config["DATA_DIR"], "archives")
+        for entry in _safe_scandir(archive_root):
+            if (
+                entry.is_file(follow_symlinks=False)
+                and entry.name.endswith(".tar.gz")
+                and entry.name not in known_archives
+            ):
+                try:
+                    os.remove(entry.path)
+                except OSError:
+                    logger.warning("清理孤立原始数据归档失败: %s", entry.path)
 
     def is_alive(self):
         return self._started and not self._stopping

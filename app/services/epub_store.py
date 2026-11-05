@@ -14,7 +14,7 @@ class EpubError(Exception):
     pass
 
 
-def _sanitize_filename(raw_name):
+def sanitize_filename(raw_name):
     name = _ILLEGAL_FILENAME_RE.sub("_", raw_name or "")
     name = re.sub(r"\s+", " ", name).strip(" .")
     if not name:
@@ -23,7 +23,7 @@ def _sanitize_filename(raw_name):
 
 
 def build_display_name(collection_name, date_str):
-    return f"{_sanitize_filename(collection_name)}_{date_str}.epub"
+    return f"{sanitize_filename(collection_name)}_{date_str}.epub"
 
 
 def epub_dir(data_dir):
