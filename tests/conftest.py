@@ -1,6 +1,13 @@
 import pytest
 
-from app import create_app
+from app import auth, captcha, create_app
+
+
+@pytest.fixture(autouse=True)
+def reset_auth_state():
+    auth._failures.clear()
+    captcha._challenges.clear()
+    yield
 
 
 @pytest.fixture
@@ -28,14 +35,27 @@ def client(app):
     return app.test_client()
 
 
+def get_captcha_code(client, monkeypatch, code="ABCD"):
+    monkeypatch.setattr(captcha, "generate_code", lambda: code)
+    response = client.get("/captcha")
+    assert response.status_code == 200
+    return code
+
+
 @pytest.fixture
-def logged_in_client(client):
+def logged_in_client(client, monkeypatch):
     client.get("/login")
     with client.session_transaction() as session:
         token = session["_csrf_token"]
+    code = get_captcha_code(client, monkeypatch)
     response = client.post(
         "/login",
-        data={"username": "admin", "password": "secret", "csrf_token": token},
+        data={
+            "username": "admin",
+            "password": "secret",
+            "captcha": code,
+            "csrf_token": token,
+        },
     )
     assert response.status_code == 302
     return client

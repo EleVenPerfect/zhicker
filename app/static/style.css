@@ -141,6 +141,28 @@ code {
   margin-bottom: 0.25rem;
 }
 
+.captcha-row {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+}
+
+.captcha-row input {
+  flex: 1;
+  letter-spacing: 0.25em;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.captcha-img {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  height: 44px;
+  width: 132px;
+}
+
 .page-head {
   align-items: flex-start;
   display: flex;

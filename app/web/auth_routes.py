@@ -1,9 +1,24 @@
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    Response,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 from app import auth
+from app.captcha import issue_challenge, render_png, verify_challenge
 from app.csrf import get_csrf_token
 
 bp = Blueprint("auth", __name__)
+
+
+@bp.get("/captcha")
+def captcha():
+    return Response(render_png(issue_challenge()), mimetype="image/png")
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -19,6 +34,10 @@ def login():
 
         if auth.is_rate_limited(ip, username):
             flash("登录失败次数过多，请 15 分钟后再试。", "error")
+            return render_template("login.html")
+
+        if not verify_challenge(request.form.get("captcha", "")):
+            flash("验证码错误或已过期，请重试。", "error")
             return render_template("login.html")
 
         if auth.verify_credentials(username, password):

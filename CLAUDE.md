@@ -50,6 +50,7 @@ docker compose up -d --build
 - 除 `auth.login`、`dashboard.healthz` 和静态文件外，所有路由都由 `app/auth.py` 的 `before_request` 强制登录。
 - 所有写请求（POST/PUT/PATCH/DELETE）必须带 CSRF token：表单字段 `csrf_token` 或 `X-CSRF-Token` 头。测试中用 `tests/conftest.py` 的 `logged_in_client` 和 `get_csrf()`。
 - 登录失败限流为每 IP/用户名 5 次/15 分钟，内存实现，重启即清空。
+- 登录页需要图形验证码（`app/captcha.py`），挑战保存在进程内存中，5 分钟过期且一次性使用；多实例部署不共享。
 - 时间戳统一以 UTC ISO 字符串存入 SQLite，页面通过 Jinja 的 `localtime` 过滤器按 `APP_TIMEZONE` 展示。
 
 ## 任务流水线

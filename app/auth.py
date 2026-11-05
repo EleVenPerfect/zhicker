@@ -6,7 +6,7 @@ from flask import current_app, redirect, request, session, url_for
 
 LOGIN_WINDOW_SECONDS = 15 * 60
 LOGIN_MAX_ATTEMPTS = 5
-PUBLIC_ENDPOINTS = {"auth.login", "dashboard.healthz"}
+PUBLIC_ENDPOINTS = {"auth.login", "auth.captcha", "dashboard.healthz"}
 
 _lock = threading.Lock()
 _failures = {}

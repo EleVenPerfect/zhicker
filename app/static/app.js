@@ -7,4 +7,10 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
+
+  document.querySelectorAll("img[data-captcha]").forEach(function (img) {
+    img.addEventListener("click", function () {
+      img.src = img.src.split("?")[0] + "?t=" + Date.now();
+    });
+  });
 });
