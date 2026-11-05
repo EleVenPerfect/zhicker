@@ -9,9 +9,6 @@ services:
       - .env
     environment:
       DATA_DIR: /data
-    # 仅 bind mount 到宿主机目录时设置：让容器以宿主机用户身份写入数据。
-    # 命名卷保持默认 10001。
-    user: "${PUID:-10001}:${PGID:-10001}"
     ports:
       - "${HOST_PORT:-8080}:${PORT:-8080}"
     volumes:

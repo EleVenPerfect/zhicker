@@ -22,8 +22,7 @@ RUN useradd --uid 10001 --user-group --create-home --shell /usr/sbin/nologin app
 
 ENV HOME=/home/appuser
 
-USER appuser
-
+# entrypoint 以 root 启动修正数据目录归属，再用 setpriv 降权到 PUID/PGID（默认 appuser）
 VOLUME ["/data"]
 EXPOSE 8080
 

@@ -48,6 +48,7 @@ docker compose logs -f
 | `ADMIN_PASSWORD` | 必填 | 登录密码 |
 | `DATA_DIR` | `/data` | SQLite、EPUB、原始数据归档、临时目录的根目录 |
 | `DATA_DIR_MODE` | `0700` | 数据目录权限；`0755` 允许他人读取，`0777` 允许所有人读写/删除 |
+| `PUID` / `PGID` | `10001` | 应用运行用户的 uid/gid；启动时自动把 `/data` 归属到该用户，bind mount 时设为宿主机用户 |
 | `PORT` | `8080` | 容器内监听端口 |
 | `HOST_PORT` | `8080` | 映射到宿主机的端口 |
 | `TZ` | `Asia/Shanghai` | 容器时区 |
@@ -130,13 +131,9 @@ PUID=1000
 PGID=1000
 ```
 
-`docker-compose.yml` 会把它们作为容器的 `user`。容器写出的文件归该用户所有，目录权限仍保持 `0700`。如果数据目录此前由容器以 UID `10001` 创建，切换后需要一次性改回当前用户：
+容器 entrypoint 以 root 启动，每次启动都会把 `/data` 归属到 `PUID` / `PGID`，然后用 `setpriv` 降权运行应用；容器写出的文件归该用户所有，目录权限仍保持 `0700`。从默认 `10001` 切换为宿主机用户时，归属会自动调整，无需手动 chown。
 
-```bash
-sudo chown -R "$(id -u):$(id -g)" ./data
-```
-
-继续使用命名卷时不要设置 `PUID` / `PGID`，容器保持默认 UID `10001`。
+继续使用命名卷时不需要设置 `PUID` / `PGID`，应用以默认 UID `10001` 运行。
 
 如果不需要按用户隔离，也可以直接向所有人开放数据目录，在 `.env` 中设置：
 
@@ -190,9 +187,9 @@ PIPELINE_STUB=success \
 检查 `.env` 中 `SECRET_KEY` 和 `ADMIN_PASSWORD` 是否已填写，`SMTP_SECURITY` 是否为 `starttls` / `ssl` / `none`。
 
 **启动报「数据目录不可写」**
-日志会打印容器用户的 uid/gid 和 `/data` 的所有者与权限，通常是挂载目录不属于容器用户：
-- bind mount：在 `.env` 设置 `PUID`/`PGID` 为宿主机用户的 `id -u` / `id -g`，并在宿主机执行 `sudo chown -R "$(id -u):$(id -g)" ./data`。
-- 命名卷：保持容器默认用户 10001，执行一次 `docker run --rm -u 0 -v <卷名>:/data <镜像> chown -R 10001:10001 /data`。卷名可用 `docker volume ls` 查看，通常是 `<compose 项目名>_zhihu_data`。
+entrypoint 会自动把 `/data` 归属到 `PUID`/`PGID`（默认 `10001`），仍报错时检查：
+- bind mount：`.env` 的 `PUID`/`PGID` 是否与宿主机目录所有者一致，可在宿主机执行 `sudo chown -R "$(id -u):$(id -g)" ./data` 后把 `PUID`/`PGID` 设为同样的值。
+- 挂载是否只读（`docker-compose.yml` 中是否带了 `:ro`），或 NAS/CIFS 挂载是否禁止 chown；这种情况下需要按挂载选项里的 uid/gid 设置 `PUID`/`PGID`。
 
 **启动日志提示无法设置数据目录权限**
 例如 `无法设置 /data 的权限为 0700 (Operation not permitted)`。说明容器用户不是 `/data` 的所有者（bind mount、旧版本创建的数据卷，或 CIFS/NFS 等不支持 `chmod` 的挂载），应用会沿用现有权限继续启动。要消除告警并固定权限，请设置正确的 `PUID`/`PGID`，并在宿主机对数据目录执行 `sudo chown -R <uid>:<gid> ./data`。
